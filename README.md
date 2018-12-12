@@ -3,7 +3,7 @@ Repository for the Practical Machine Learning Project
 
 This repository contains my solution for the last assignment.
 
-The html page is published under :
+[Open the html page]
 (https://ipetoud.github.io/practicalmachinelearning/Assignment.html)
 
 The link to the GitHub repository is :
