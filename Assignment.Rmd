@@ -1,0 +1,146 @@
+---
+title: "Machine Learning Assignment"
+author: "Isabelle Petoud"
+date: "12/12/2018"
+output: html_document
+---
+
+Summary of project's goal
+================
+The goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict how they did the exercices.
+They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. This is what the "classe" variable represents in the data and what needs to be predicted on the sample.
+
+References
+==========
+[1] Original site: http:/groupware.les.inf.puc-rio.br/har</br>
+[2] Citation to use the data: Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.</br>
+[3] Data set: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</br>
+[4] Test set: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv </br>
+
+How I built my model
+===============
+Use the question -> input data -> features -> algorithm -> parameters -> evaluation.</br>
+Question and input data are given. So let's talk about the features. Clean up the data to keep only the data given by the sensors.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Data cleansing
+--------------
+First, read the files with training and testing data. 
+```{r readdata}
+## clear the environment
+rm(list=ls()) 
+## read the files
+inTrain <- read.csv("/final/pml-training.csv")
+inTest <- read.csv("/final/pml-testing.csv")
+```
+Some validations such as verifying that the columns' names are the same were performed
+(not shown here). 
+
+Then by looking at the data, there are many features that have almost only NAs. 
+
+**nearZeroVar** is in the **caret** package that has to be loaded through the **library** command.
+```{r datacleansing}
+## remove variables that are almost always NA
+mostlyNA <- sapply(inTrain, function(x) mean(is.na(x)) > 0.90)
+inTrain <- inTrain[, !mostlyNA]
+inTest <- inTest[, !mostlyNA]
+
+## remove variables with nearly zero variance
+library(caret)
+nzv <- nearZeroVar(inTrain)
+inTrain <- inTrain[, -nzv]
+inTest <- inTest[, -nzv]
+
+## remove variables that are not measures i.e. the first 7 columns
+inTrain <- inTrain[, -(1:7)]
+inTest <- inTest[, -(1:7)]
+```
+
+With summary(), str() or head() it is possible to have a look at the cleaned data.</br>
+From 160 variables, we came down to 52 including classe.
+
+We need to use algorithm that can handle classification. I choose 
+**decision trees** and **random forests**.
+
+## First method : Decision Trees
+Let's start with decision trees. We set the seed in order to get
+the same results at each run.
+```{r datasplitting}
+## specifying outcome variable as factor
+inTrain$classe<-as.factor(inTrain$classe)
+set.seed(1237)
+trainpart <- createDataPartition(y=inTrain$classe, p=0.6, list = FALSE)
+## taking 60% for training set and 40% for testing set
+training <- inTrain[trainpart, ]
+test <- inTrain[-trainpart, ]
+```
+In order to limit the effects of overfitting, and improve the efficicency of 
+the models, we will use the **cross-validation** technique. </br>
+We will use 5 folds which normally gives good results.</br>
+Then apply the algorithm for **rpart** from the caret package.</br>
+We define the corresponding parameter to pass to the train function.
+```{r crossvalidation}
+trControl <- trainControl(method="cv", number=5, verboseIter=FALSE)
+```
+and then use it.
+```{r rpart}
+modFitDT <- train(classe ~ .,method="rpart",data=training,trControl=trControl)
+print(modFitDT$finalModel)
+```
+And plot the decision tree.
+```{r plotDT}
+library(rattle)
+fancyRpartPlot(modFitDT$finalModel)
+```
+
+And then predict on the test set
+```{r predictDT}
+predictionsDT <- predict(modFitDT,newdata=test)
+```
+
+```{r confusionmatrixDT}
+confusionMatrix(test$classe, predictionsDT)
+```
+We can see that the accuracy is low (56%).
+
+## Second method : Random Forest
+Let's use random forest with the same parameter for cross validation.
+```{r randomforest}
+set.seed(1237)
+modelFitRF <- train(classe ~., data=training, method="rf",prox = TRUE,
+                trControl=trControl)
+modelFitRF$finalModel
+predictionsRF <- predict(modelFitRF,newdata=test)
+confusionMatrix(test$classe, predictionsRF)
+```
+We can see that the accuracy is quite good (more than 99%).
+
+### How I used cross validation
+As already explained, by fixing the trControl parameter in the train
+method the caret package will use 5 folds to perform cross validation.
+
+### What I think the expected out of sample error is
+The expected out of sample error is computed as **1-accuracy**</br>
+This means for the decision tree:</br>
+Approximatly 44%</br>
+and for random forest:</br>
+Approximatly 1%</br>
+
+### Why I made the choices I did.
+I choose decision trees because it is a model easy to interpret.</br>
+I choose random forest because it gives good results</br>
+
+### Usage of my prediction model to predict 20 different test cases.
+
+Predict with Random Forest as it has the best accuracy
+```{r validationRF}
+predict(modelFitRF,newdata=inTest)
+```
+
+### Conclusion
+As expected the random forest algorithm gives the best results with an 
+accuracy of more than 99%.
