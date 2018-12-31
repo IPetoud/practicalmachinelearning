@@ -6,7 +6,7 @@ output: html_document
 ---
 
 Summary of project's goal
-================
+==================
 The goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict how they did the exercices.
 They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. This is what the "classe" variable represents in the data and what needs to be predicted on the sample.
 
